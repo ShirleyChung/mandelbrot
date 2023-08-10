@@ -72,9 +72,9 @@ fn wirte_image(filename: &str, data: &[u8], bounds: (usize, usize)) -> Result<()
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let mut filename = "mandelbrot.png";
-    let mut bounds = (1920, 1080);
-    let mut ul = Complex {re: 0.0, im:0.0};
-    let mut lr = Complex {re: 0.0, im:0.0};
+    let mut bounds = (1000, 750);
+    let mut ul = Complex {re: -1.2, im:0.35};
+    let mut lr = Complex {re: -1.0, im:0.20};
     if args.len() > 1 {
         filename = &args[1];
         if args.len() > 2 {
@@ -87,13 +87,13 @@ fn main() {
                 }
             }
         }
-        let mut pixels = vec![0; bounds.0 as usize * bounds.1 as usize];
-
-        render(&mut pixels, bounds, ul, lr);
-
-        wirte_image(filename, &pixels, bounds)
-        .expect("error on write PNG file");
     }
+    let mut pixels = vec![0; bounds.0 as usize * bounds.1 as usize];
 
+    println!("create PNG file: {} with bounds: {:?}, upper left: {} lower right: {}", filename, bounds, ul, lr);
 
+    render(&mut pixels, bounds, ul, lr);
+
+    wirte_image(filename, &pixels, bounds)
+    .expect("error on write PNG file");
 }
