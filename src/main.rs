@@ -1,4 +1,5 @@
 use num::Complex;
+use std::cmp::max;
 use std::str::FromStr;
 use image::ColorType;
 use image::png::PNGEncoder;
@@ -75,6 +76,7 @@ fn main() {
     let mut bounds = (1000, 750);
     let mut ul = Complex {re: -1.2, im:0.35};
     let mut lr = Complex {re: -1.0, im:0.20};
+    let mut threads = 64; // 把圖切成8塊分別畫
     if args.len() > 1 {
         filename = &args[1];
         if args.len() > 2 {
@@ -84,15 +86,31 @@ fn main() {
                 ul = parse_complex(&args[3]).expect("error on parse upper left");
                 if args.len() > 4 {
                     lr = parse_complex(&args[4]).expect("error on parse lower right");
+                    if args.len() > 5 {
+                        threads = usize::from_str(&args[5]).expect("error specify thread nums");
+                        threads = max(1, threads);
+                    }
                 }
             }
         }
     }
     let mut pixels = vec![0; bounds.0 as usize * bounds.1 as usize];
+    println!("create PNG file: {} with bounds: {:?}, upper left: {} lower right: {}, threads: {}", filename, bounds, ul, lr, threads);
 
-    println!("create PNG file: {} with bounds: {:?}, upper left: {} lower right: {}", filename, bounds, ul, lr);
-
-    render(&mut pixels, bounds, ul, lr);
+    let rows_per_band = bounds.1 / threads + 1; // 至少1列
+    let bands: Vec<&mut [u8]> = pixels.chunks_mut(rows_per_band * bounds.0).collect();
+    crossbeam::scope(|spawner| {
+        for (i, band) in bands.into_iter().enumerate() {
+            let top = rows_per_band * i;
+            let height = band.len() / bounds.0;
+            let band_bound = (bounds.0, height);
+            let band_upper_left = pixel_to_point(bounds, (0, top), ul, lr);
+            let band_lower_right = pixel_to_point(bounds, (bounds.0, top + height), ul, lr);
+            spawner.spawn(move |_| {
+                render(band, band_bound, band_upper_left, band_lower_right);
+            });
+        }
+    }).unwrap();
 
     wirte_image(filename, &pixels, bounds)
     .expect("error on write PNG file");
